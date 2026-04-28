@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HMM.py — Profile Hidden Markov Model</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/tomorrow-night.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --bg2: #111720;
+      --bg3: #161d27;
+      --border: #1e2a38;
+      --accent: #4ec9b0;
+      --accent2: #ce9178;
+      --accent3: #569cd6;
+      --text: #cdd8e3;
+      --text-dim: #637a8a;
+      --heading: #e8f0f7;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(78,201,176,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(78,201,176,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 60px 32px 100px;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 56px;
+      border-left: 3px solid var(--accent);
+      padding-left: 24px;
+    }
+
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      color: var(--heading);
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.7;
+      max-width: 560px;
+    }
+
+    /* Meta strip */
+    .meta-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 48px;
+    }
+
+    .tag {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text-dim);
+      background: var(--bg2);
+    }
+
+    .tag.hi { border-color: var(--accent); color: var(--accent); }
+    .tag.hi2 { border-color: var(--accent3); color: var(--accent3); }
+    .tag.hi3 { border-color: var(--accent2); color: var(--accent2); }
+
+    /* Section headers */
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Description block */
+    .description-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent3);
+      padding: 28px 32px;
+      margin-bottom: 48px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .description-block p {
+      font-size: 13px;
+      line-height: 1.85;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+
+    .description-block p:last-child { margin-bottom: 0; }
+
+    /* Code block wrapper */
+    .code-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-filename {
+      font-size: 12px;
+      color: var(--accent2);
+      letter-spacing: 0.05em;
+    }
+
+    .code-lang {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* Line numbers + code layout */
+    .code-body {
+      display: flex;
+      overflow-x: auto;
+    }
+
+    .line-numbers {
+      padding: 20px 0;
+      background: var(--bg3);
+      border-right: 1px solid var(--border);
+      min-width: 52px;
+      text-align: right;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .line-numbers span {
+      display: block;
+      padding: 0 14px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-dim);
+      opacity: 0.4;
+    }
+
+    pre {
+      margin: 0;
+      padding: 20px 24px;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    pre code.hljs {
+      background: transparent !important;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      padding: 0;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    /* Fade-in animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    header  { animation: fadeUp 0.5s ease both; }
+    .meta-strip { animation: fadeUp 0.5s 0.1s ease both; }
+    .description-block { animation: fadeUp 0.5s 0.2s ease both; }
+    .code-wrap { animation: fadeUp 0.5s 0.3s ease both; }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <header>
+    <div class="label">ben-everson / Projects / Viterbis</div>
+    <h1>Profile <em>Hidden Markov</em> Model</h1>
+    <p class="subtitle">
+      A full Viterbi implementation with backtracking for biological sequence alignment,
+      built on a HMMER-format profile HMM loader and log-likelihood scorer.
+    </p>
+  </header>
+
+
+  <div class="section-label">Source — HMM.py</div>
+
+  <div class="code-wrap">
+    <div class="code-header">
+      <span class="code-filename">HMM.py</span>
+      <span class="code-lang">Python</span>
+    </div>
+    <div class="code-body">
+      <div class="line-numbers" id="lineNums"></div>
+      <pre><code class="language-python" id="codeBlock">from math import *
+import sys
+
+
+INF = float("inf")
+
+
+class HMM:
+    def __init__(self):
+        self.alphabet = []
+        self.eI = []      # background probability of each character in the alphabet
+        self.eM = [{}]    # emission probability, one dictionary for each matching state in the model
+        self.t = []       # transition probability, one dictionary for each set of states (D,M,I) in the model
+        self.nstate = 0
+    
+    def load(self,hmmfile):
+    # only load the first model in the given hmmfile if there are two or more models
+        with open(hmmfile,'r') as fin:
+            for line in fin:
+                stream = line.strip().split()
+
+                if stream[0] == "LENG":
+                    self.nstate = int(stream[1])
+
+                if stream[0] == "HMM": 
+                    # read alphabet
+                    self.alphabet = stream[1:]
+                    
+                    # read transition order
+                    stream = fin.readline().strip().split()
+                    trans_order = [(y[0]+y[3]).upper() for y in stream]
+                    
+                    # read the next line, if it is the COMPO line then ignore it and read one more line
+                    stream = fin.readline().strip().split()
+                    if stream[0] == "COMPO":
+                        stream = fin.readline().strip().split()
+                    
+                    # now the stream should be at the I0 state; read the emission of the I0 state 
+                    e = {}
+                    for (x,y) in zip(self.alphabet,stream):
+                        e[x] = -float(y)
+                    self.eI.append(e)    
+                    
+                    # now the stream should be at the B state; read in the transition probability
+                    stream = fin.readline().strip().split()
+                    tB = {'MM':-INF,
+                          'MD':-INF,
+                          'MI':-INF,
+                          'IM':-INF,
+                          'II':-INF,
+                          'ID':-INF,
+                          'DM':-INF,
+                          'DI':-INF,
+                          'DD':-INF}
+                    for x,y in zip(trans_order,stream):
+                        tB[x] = -INF if y == '*' else -float(y)
+
+                    self.t.append(tB)
+                    break    
+
+            for i in range(1, self.nstate+1):
+                # read each set of three lines at a time
+                stream = fin.readline().strip().split() # this one is the emission of the M state
+                if float(stream[0]) != i:
+                    print("Warning: incosistent state idexing in hmm file; expecting state " + str(i) + "; getting state " + stream[0])
+                e = {}
+                for x,y in zip(self.alphabet,stream[1:]):
+                    e[x] = -INF if y == "*" else -float(y) 
+                self.eM.append(e)    
+
+                # the next line is the emission of the I state
+                stream = fin.readline().strip().split() 
+                e = {}
+                for x,y in zip(self.alphabet,stream):
+                    e[x] = -INF if y == "*" else -float(y) 
+                self.eI.append(e)                    
+
+                # the next line contains the transition probs
+                stream = fin.readline().strip().split() # this one is the transition prob
+                tB = {'MM':-INF,
+                      'MD':-INF,
+                      'MI':-INF,
+                      'IM':-INF,
+                      'II':-INF,
+                      'ID':-INF,
+                      'DM':-INF,
+                      'DI':-INF,
+                      'DD':-INF}
+                for x,y in zip(trans_order,stream):
+                    tB[x] = -INF if y == '*' else -float(y)
+                self.t.append(tB)      
+
+    def compute_llh(self, query):
+        # Compute likelihood of an aligned query to the HMM
+        # Return -inf if the query is not properly aligned
+        j = 0
+        prev_state = 'M'
+        llh = 0
+
+        for c in query:
+            if c == '-': # gap -> deletion
+                curr_state = 'D'
+            elif c >= 'a' and c <= 'z': # lowercase -> insertion
+                curr_state = 'I'
+            elif c >= 'A' and c <= 'Z': # uppercase -> match
+                curr_state = 'M'
+            else: # encounter invalid symbol
+                return -INF
+
+            trans = prev_state + curr_state
+
+            # penalize the transition
+            if trans in self.t[j]:
+                llh += self.t[j][trans]
+            else:
+                return -INF 
+            
+            # transit: update the state index
+            j += (curr_state != 'I')
+            if j > self.nstate:
+                return -INF
+
+            # penalize the emission
+            if curr_state == 'M':
+                llh += self.eM[j][c]
+            elif curr_state == 'I': 
+                llh += self.eI[j][c.upper()]
+            
+            # update state
+            prev_state = curr_state
+
+        if j != self.nstate:
+            return float("-inf")
+        trans = prev_state + 'M'
+        llh += self.t[j][trans]    
+        return llh
+
+    def Viterbi(self, query):
+        """
+        Full-matrix Viterbi with traceback for a Profile HMM.
+        Returns: (log-likelihood-score, alignment_string)
+        alignment_string uses:
+            uppercase letters for Match state emissions
+            lowercase letters for Insertion emissions
+            '-' for Deletions
+        """
+
+        NEG_INF = -float("inf")
+        L = len(query)
+        K = self.nstate
+
+        # DP matrices: rows = sequence positions, cols = model states
+        M = [[NEG_INF] * (K + 1) for _ in range(L + 1)]
+        I = [[NEG_INF] * (K + 1) for _ in range(L + 1)]
+        D = [[NEG_INF] * (K + 1) for _ in range(L + 1)]
+
+        # Backpointers store: (prev_state, prev_i, prev_k)
+        bM = [[None] * (K + 1) for _ in range(L + 1)]
+        bI = [[None] * (K + 1) for _ in range(L + 1)]
+        bD = [[None] * (K + 1) for _ in range(L + 1)]
+
+        # Start at (i=0, k=0) in M0 with score 0
+        M[0][0] = 0.0
+        bM[0][0] = (None, -1, -1)
+
+        # Initialize deletion row: allow leading deletions M0->D1->D2->...
+        for k in range(1, K + 1):
+            candidates = [
+                (M[0][k - 1] + self.t[k - 1]['MD'], ('M', 0, k - 1)),
+                (D[0][k - 1] + self.t[k - 1]['DD'], ('D', 0, k - 1)),
+                (I[0][k - 1] + self.t[k - 1]['ID'], ('I', 0, k - 1))
+            ]
+            best_val, best_ptr = max(candidates, key=lambda p: p[0])
+            D[0][k] = best_val
+            bD[0][k] = best_ptr
+
+        # Fill DP matrix
+        for index in range(1, L + 1):
+            ch = query[index - 1]
+
+            # k=0: only I0 can emit (stay at model position 0)
+            emitI0 = self.eI[0][ch]
+            cand_I0 = [
+                (M[index - 1][0] + self.t[0]['MI'], ('M', index - 1, 0)),
+                (I[index - 1][0] + self.t[0]['II'], ('I', index - 1, 0)),
+                (D[index - 1][0] + self.t[0]['DI'], ('D', index - 1, 0))
+            ]
+            best_base, best_ptr = max(cand_I0, key=lambda p: p[0])
+            I[index][0] = emitI0 + best_base
+            bI[index][0] = best_ptr
+            M[index][0] = NEG_INF
+            D[index][0] = NEG_INF
+
+            for k in range(1, K + 1):
+                # Match state
+                cand_M = [
+                    (M[index - 1][k - 1] + self.t[k - 1]['MM'], ('M', index - 1, k - 1)),
+                    (I[index - 1][k - 1] + self.t[k - 1]['IM'], ('I', index - 1, k - 1)),
+                    (D[index - 1][k - 1] + self.t[k - 1]['DM'], ('D', index - 1, k - 1)),
+                ]
+                best_base, best_ptr = max(cand_M, key=lambda p: p[0])
+                M[index][k] = self.eM[k][ch] + best_base
+                bM[index][k] = best_ptr
+
+                # Insertion state
+                cand_I = [
+                    (M[index - 1][k] + self.t[k]['MI'], ('M', index - 1, k)),
+                    (I[index - 1][k] + self.t[k]['II'], ('I', index - 1, k)),
+                    (D[index - 1][k] + self.t[k]['DI'], ('D', index - 1, k))
+                ]
+                best_base, best_ptr = max(cand_I, key=lambda p: p[0])
+                I[index][k] = self.eI[k][ch] + best_base
+                bI[index][k] = best_ptr
+
+                # Deletion state (no emission)
+                cand_D = [
+                    (M[index][k - 1] + self.t[k - 1]['MD'], ('M', index, k - 1)),
+                    (I[index][k - 1] + self.t[k - 1]['ID'], ('I', index, k - 1)),
+                    (D[index][k - 1] + self.t[k - 1]['DD'], ('D', index, k - 1)),
+                ]
+                best_val, best_ptr = max(cand_D, key=lambda p: p[0])
+                D[index][k] = best_val
+                bD[index][k] = best_ptr
+
+        # Terminal scores: transition to end state
+        end_cands = [
+            (M[L][K] + self.t[K]["MM"], ('M', L, K)),
+            (I[L][K] + self.t[K]["IM"], ('I', L, K)),
+            (D[L][K] + self.t[K]["DM"], ('D', L, K)),
+        ]
+        Vscore, (state, index, k) = max(end_cands, key=lambda p: p[0])
+
+        # Traceback
+        aln = []
+        while True:
+            if state is None or (index == 0 and k == 0):
+                break
+            if state == 'M':
+                prev = bM[index][k]
+                aln = [query[index - 1]] + aln
+                state, index, k = prev
+            elif state == 'I':
+                prev = bI[index][k]
+                aln = [query[index - 1].lower()] + aln
+                state, index, k = prev
+            elif state == 'D':
+                prev = bD[index][k]
+                aln = ['-'] + aln
+                state, index, k = prev
+            else:
+                break
+
+        return Vscore, "".join(aln)
+</code></pre>
+    </div>
+  </div>
+
+  <footer>
+    <span>ben-everson &mdash; Projects / Viterbis / HMM.py</span>
+    <a href="https://github.com/ben-everson/Projects/tree/main/Viterbis" target="_blank">View on GitHub →</a>
+  </footer>
+
+</div>
+
+<script>
+  hljs.highlightAll();
+
+  // Generate line numbers to match rendered code lines
+  const code = document.getElementById('codeBlock');
+  const lineNums = document.getElementById('lineNums');
+  const lines = code.textContent.split('\n');
+  // Remove trailing empty line if present
+  const count = lines[lines.length - 1].trim() === '' ? lines.length - 1 : lines.length;
+  for (let i = 1; i <= count; i++) {
+    const span = document.createElement('span');
+    span.textContent = i;
+    lineNums.appendChild(span);
+  }
+</script>
+</body>
+</html>
