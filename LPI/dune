@@ -1,0 +1,16 @@
+(library
+ (name P5)
+ (modules ast_shared ast_o ast_c lexer_o lexer_c parser_o parser_c typeinference typecheck)
+ (preprocess
+  (pps ppx_jane ppx_deriving.show)))
+
+(ocamllex
+ (modules lexer_o lexer_c))
+
+(menhir
+ (modules parser_o parser_c))
+
+(env
+ (dev
+  (flags
+   (:standard -w -11-12-20-26-31-32-33-56-60-27-39))))
